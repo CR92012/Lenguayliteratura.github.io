@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Preguntados - Lengua y Literatura (Tablero)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root{
+      --bg:#0f1320;
+      --panel:#141826;
+      --accent:#ffd166;
+      --card:#1f2433;
+      --muted:#9aa0b4;
+    }
+    body{
+      margin:0;
+      font-family:Inter, "Segoe UI", Arial, sans-serif;
+      background:linear-gradient(180deg,var(--bg),#08101a);
+      color:#fff;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:14px;
+      padding:18px;
+    }
+
+    h1{ margin:0; font-size:20px; color:var(--accent) }
+
+    /* Panel configuración */
+    #config {
+      width:min(980px,96%);
+      background:var(--panel);
+      border-radius:8px;
+      padding:12px;
+      box-shadow:0 6px 20px rgba(0,0,0,0.6);
+    }
+    #config label{ display:block; margin:6px 0; color:var(--muted) }
+    .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:6px; }
+    select, button, input[type="number"]{
+      background:var(--card);
+      color:#fff;
+      border:1px solid rgba(255,255,255,0.04);
+      padding:8px 10px;
+      border-radius:6px;
+      outline:none;
+    }
+    button.primary{ background:var(--accent); color:#111; font-weight:600; cursor:pointer; }
+    button:disabled{ opacity:0.5; cursor:not-allowed; }
+
+    /* Tablero */
+    #boardWrap{ display:flex; gap:12px; width:100%; max-width:980px; }
+    #tablero{
+      display:grid;
+      grid-template-columns: repeat(10,48px);
+      grid-auto-rows:48px;
+      gap:6px;
+      background:transparent;
+      padding:10px;
+      border-radius:8px;
+    }
+    .cell{
+      background:#2b3140;
+      border-radius:6px;
+      display:flex;
+      align-items:flex-start;
+      justify-content:flex-start;
+      color:#dfe7ff;
+      font-size:12px;
+      padding:4px;
+      position:relative;
+      box-shadow: inset 0 -4px 6px rgba(0,0,0,0.35);
+    }
+    .cell .num{ position:absolute; top:4px; right:6px; opacity:0.5; font-size:11px }
+
+    /* container for tokens in a cell */
+    .tokens { position:absolute; left:6px; bottom:6px; display:flex; gap:4px; flex-wrap:wrap; max-width:34px; }
+
+    .token{
+      width:18px; height:18px; border-radius:50%; box-shadow:0 2px 4px rgba(0,0,0,0.6);
+      border:2px solid rgba(255,255,255,0.12);
+    }
+
+    /* UI lateral/info */
+    #info{
+      width:280px;
+      background:var(--panel);
+      border-radius:8px;
+      padding:10px;
+    }
+    #turnText{ font-weight:700; margin:6px 0; }
+    #diceBtn{ width:100%; margin-top:8px; }
+    #result{ color:var(--muted); min-height:20px; }
+
+    /* Modal pregunta */
+    #questionBox{
+      position:fixed;
+      left:50%;
+      top:50%;
+      transform:translate(-50%,-50%);
+      width:min(760px,96%);
+      background:#0b1220;
+      border-radius:10px;
+      padding:14px;
+      box-shadow:0 20px 60px rgba(2,7,23,0.8);
+      display:none;
+      z-index:80;
+    }
+    #questionBox h3{ margin:0 0 10px 0; color:var(--accent) }
+    .opt{
+      background:#151a28; padding:10px; border-radius:6px; margin:8px 0; cursor:pointer;
+      border:1px solid rgba(255,255,255,0.03);
+    }
+    .opt:hover{ transform:translateY(-2px); }
+    .opt.correct{ outline:3px solid rgba(0,200,120,0.14); }
+    .opt.wrong{ outline:3px solid rgba(200,40,40,0.12); }
+
+    /* small screens adjust */
+    @media (max-width:880px){
+      #boardWrap{ flex-direction:column; align-items:center; }
+      #info{ width:100%; }
+    }
+  </style>
+</head>
+<body>
+  <h1>📚 Preguntados - Lengua y Literatura (Tablero)</h1>
+
+  <div id="config" aria-hidden="false">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <strong>Configuración de la partida</strong>
+      <small id="statusLoad" style="color:var(--muted)">Cargando preguntas...</small>
+    </div>
+
+    <div class="row" style="margin-top:10px;">
+      <label>Nº jugadores:
+        <select id="numPlayers">
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4" selected>4</option>
+          <option value="5">5</option>
+          <option value="6">6</option>
+        </select>
+      </label>
+
+      <label>Casillas (tablero):
+        <input id="numCells" type="number" min="10" max="60" value="30" style="width:80px">
+      </label>
+
+      <button id="setupBtn" class="primary">Configurar jugadores</button>
+    </div>
+
+    <div id="playersConfig" style="margin-top:12px;"></div>
+
+  </div>
+
+  <div id="boardWrap" style="display:none;">
+    <div id="tablero" aria-hidden="true"></div>
+
+    <div id="info" aria-hidden="true">
+      <div id="turnText">Turno:</div>
+      <div id="scoreText" style="color:var(--muted); font-size:13px;"></div>
+      <button id="diceBtn" onclick="rollDice()" disabled>Tirar dado 🎲</button>
+      <div id="result"></div>
+      <div style="margin-top:8px;"><button onclick="restart()" style="width:100%">Reiniciar partida</button></div>
+    </div>
+  </div>
+
+  <!-- Modal pregunta -->
+  <div id="questionBox" role="dialog" aria-modal="true">
+    <h3 id="qTitle">Pregunta</h3>
+    <p id="qText" style="color:#cfe4ff"></p>
+    <div id="qOpts"></div>
+    <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end">
+      <button onclick="closeQuestion(false)">Cerrar</button>
+    </div>
+  </div>
+
+  <script>
+    /* ====== Variables y utilidades ====== */
+    let questions = [];            // todas las preguntas cargadas desde JSON
+    let questionPool = [];         // mapeo de preguntas por casilla
+    let startPool = [];            // preguntas para la casilla de salida (hasta 3)
+    let players = [];              // array de jugadores {name,color,pos,score}
+    let currentTurn = 0;
+    let numCells = 30;
+    const availableColors = ["#e63946","#1d3557","#2a9d8f","#f4a261","#9b5de5","#ff7b00"];
+
+    const statusLoad = document.getElementById('statusLoad');
+    const setupBtn = document.getElementById('setupBtn');
+    const playersConfig = document.getElementById('playersConfig');
+    const boardWrap = document.getElementById('boardWrap');
+    const tableroEl = document.getElementById('tablero');
+    const infoPanel = document.getElementById('info');
+    const turnText = document.getElementById('turnText');
+    const resultEl = document.getElementById('result');
+    const diceBtn = document.getElementById('diceBtn');
+    const qBox = document.getElementById('questionBox');
+    const qTitle = document.getElementById('qTitle');
+    const qText = document.getElementById('qText');
+    const qOpts = document.getElementById('qOpts');
+    const numPlayersSelect = document.getElementById('numPlayers');
+    const numCellsInput = document.getElementById('numCells');
+
+    // helper shuffle
+    function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]] } return a; }
+
+    /* ====== Cargar preguntas.json ====== */
+    async function loadQuestions(){
+      try{
+        const res = await fetch('preguntas.json', {cache:"no-store"});
+        if(!res.ok) throw new Error('No se pudo cargar preguntas.json: '+res.status);
+        questions = await res.json();
+        if(!Array.isArray(questions) || questions.length===0){
+          statusLoad.textContent = 'preguntas.json vacío o mal formado';
+          statusLoad.style.color = '#ff6b6b';
+          return;
+        }
+        statusLoad.textContent = `Preguntas cargadas: ${questions.length}`;
+        statusLoad.style.color = '#9be7a3';
+      } catch(e){
+        statusLoad.textContent = 'Error cargando preguntas.json';
+        statusLoad.style.color = '#ff6b6b';
+        console.error(e);
+      }
+    }
+    loadQuestions();
+
+    /* ====== configurar selects de color según nº jugadores ====== */
+    setupBtn.addEventListener('click', ()=> {
+      const n = parseInt(numPlayersSelect.value,10);
+      playersConfig.innerHTML = '';
+      const used = [];
+      for(let i=0;i<n;i++){
+        const row = document.createElement('div');
+        row.className = 'row';
+        const label = document.createElement('label');
+        label.textContent = `Jugador ${i+1} nombre: `;
+        const inpName = document.createElement('input');
+        inpName.value = `J${i+1}`;
+        inpName.style.width='120px';
+
+        const colorLabel = document.createElement('label');
+        colorLabel.textContent = 'Color:';
+        const sel = document.createElement('select');
+        sel.id = 'colorSel_'+i;
+        availableColors.forEach((c,idx)=>{
+          const opt = document.createElement('option');
+          opt.value = c;
+          opt.textContent = `Color ${idx+1}`;
+          opt.style.background = c;
+          sel.appendChild(opt);
+        });
+        sel.value = availableColors[i % availableColors.length];
+
+        row.appendChild(label); row.appendChild(inpName);
+        row.appendChild(colorLabel); row.appendChild(sel);
+        playersConfig.appendChild(row);
+      }
+
+      const startBtn = document.createElement('button');
+      startBtn.className = 'primary';
+      startBtn.textContent = 'Iniciar partida';
+      startBtn.onclick = startGame;
+      playersConfig.appendChild(startBtn);
+    });
+
+    /* ====== Crear tablero y pool de preguntas ====== */
+    function buildBoard(cells){
+      tableroEl.innerHTML = '';
+      tableroEl.style.gridTemplateColumns = `repeat(${ Math.min(10, Math.ceil(cells/3)) },48px)`;
+      for(let i=0;i<cells;i++){
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.dataset.index = i;
+        const num = document.createElement('div');
+        num.className = 'num';
+        num.textContent = i+1;
+        const tokens = document.createElement('div');
+        tokens.className = 'tokens';
+        cell.appendChild(num);
+        cell.appendChild(tokens);
+        tableroEl.appendChild(cell);
+      }
+    }
+
+    function prepareQuestionPool(cells){
+      // asegurarnos que questions esté cargado
+      if(!questions || questions.length===0) {
+        alert('No hay preguntas cargadas en preguntas.json. Revisa el archivo y recarga la página.');
+        return;
+      }
+      // pool repetido / mezclado para cubrir todas las casillas
+      let pool = [];
+      const shuffled = shuffle(questions.slice());
+      while(pool.length < cells){
+        pool = pool.concat(shuffled.slice());
+      }
+      pool = pool.slice(0,cells);
+      questionPool = pool.map(q=>{
+        // validar estructura mínima
+        if(!q || !q.pregunta || !Array.isArray(q.opciones) || q.opciones.length < 3 || typeof q.respuesta !== 'number') {
+          // fallback
+          return { pregunta: "Pregunta inválida en JSON", opciones:["-","-","-"], respuesta:0 };
+        }
+        // normalizar a 3 opciones (si hay más, tomar primeras 3)
+        return { pregunta: q.pregunta, opciones: q.opciones.slice(0,3), respuesta: q.respuesta };
+      });
+
+      // preparar preguntas para salida: hasta 3 aleatorias (si hay suficientes)
+      startPool = [];
+      if(questions.length <= 3) startPool = shuffle(questions.slice());
+      else {
+        const pick = shuffle(questions.slice()).slice(0,3);
+        startPool = pick;
+      }
+    }
+
+    /* ====== Iniciar / reiniciar juego ====== */
+    function startGame(){
+      // leer configuración jugadores
+      const n = parseInt(numPlayersSelect.value,10);
+      numCells = Math.max(10, Math.min(60, parseInt(numCellsInput.value,10) || 30));
+      players = [];
+      for(let i=0;i<n;i++){
+        const name = document.querySelectorAll('#playersConfig input')[i].value || `J${i+1}`;
+        const color = document.getElementById('colorSel_'+i).value || availableColors[i];
+        players.push({ name, color, pos:0, score:0 });
+      }
+      currentTurn = 0;
+
+      // construir tablero y pool
+      buildBoard(numCells);
+      prepareQuestionPool(numCells);
+
+      // mostrar UI
+      document.getElementById('config').style.display = 'none';
+      boardWrap.style.display = 'flex';
+      infoPanel.style.display = 'block';
+
+      renderTokens();
+      updateInfo();
+      // mostrar la primer pregunta para el primer jugador (casilla salida)
+      // retrasamos un poco para que UI se estabilice
+      setTimeout(()=> showQuestionForCurrentPlayer(), 300);
+    }
+
+    function restart(){
+      location.reload();
+    }
+
+    /* ====== Render tokens en tablero ====== */
+    function renderTokens(){
+      // limpiar tokens
+      document.querySelectorAll('.tokens').forEach(t => t.innerHTML = '');
+      players.forEach((p,pi)=>{
+        const cell = document.querySelector(`.cell[data-index="${p.pos}"]`);
+        if(cell){
+          const container = cell.querySelector('.tokens');
+          const t = document.createElement('div');
+          t.className = 'token';
+          t.style.background = p.color;
+          t.title = p.name;
+          container.appendChild(t);
+        }
+      });
+    }
+
+    /* ====== Lógica de preguntas ====== */
+    function showQuestionForCurrentPlayer(){
+      if(!questionPool || questionPool.length===0){
+        alert('No hay preguntas disponibles. Asegurate de que preguntas.json esté correcto.');
+        return;
+      }
+
+      const player = players[currentTurn];
+      // si alguien ya ganó, no mostrar
+      if(isGameOver) return;
+
+      // elegir la pregunta según casilla
+      const cellIndex = player.pos;
+      let q;
+      if(cellIndex === 0 && startPool.length>0){
+        // pregunta aleatoria dentro del pool de salida
+        q = startPool[Math.floor(Math.random() * startPool.length)];
+      } else {
+        q = questionPool[cellIndex % questionPool.length];
+      }
+
+      // mostrar modal
+      qTitle.textContent = `${player.name} (Casilla ${cellIndex+1})`;
+      qText.textContent = q.pregunta;
+      qOpts.innerHTML = '';
+
+      // mezclar opciones manteniendo cuál es la correcta
+      const opts = q.opciones.slice(0,3).map((o,idx)=>({text:o, idx}));
+      // we may want to shuffle options but need to track correct index
+      const shuffledOpts = shuffle(opts.slice());
+      const correctPos = shuffledOpts.findIndex(o=> o.idx === q.respuesta);
+
+      shuffledOpts.forEach((optObj, oi)=>{
+        const div = document.createElement('div');
+        div.className = 'opt';
+        div.textContent = optObj.text;
+        div.onclick = ()=> {
+          // bloquear más clicks
+          Array.from(qOpts.children).forEach(c=> c.style.pointerEvents='none');
+          // marcar visualmente
+          if(oi === correctPos){
+            div.classList.add('correct');
+            handleCorrectAnswer();
+          } else {
+            div.classList.add('wrong');
+            // marcar la correcta también
+            qOpts.children[correctPos].classList.add('correct');
+            handleWrongAnswer();
+          }
+        };
+        qOpts.appendChild(div);
+      });
+
+      // show modal
+      qBox.style.display = 'block';
+      // disable dice while question is open
+      diceBtn.disabled = true;
+    }
+
+    function closeQuestion(allowDice){
+      qBox.style.display = 'none';
+      diceBtn.disabled = !allowDice;
+    }
+
+    function handleCorrectAnswer(){
+      // permitir tirar dado
+      closeQuestion(true);
+      resultEl.textContent = `${players[currentTurn].name} respondió correctamente. Ahora puede tirar el dado.`;
+      // enable button
+      diceBtn.disabled = false;
+    }
+
+    function handleWrongAnswer(){
+      // cerrar modal y pasar turno
+      closeQuestion(false);
+      resultEl.textContent = `${players[currentTurn].name} falló. Turno siguiente.`;
+      // pasar turno tras 800ms para que el usuario vea el feedback
+      setTimeout(()=> nextTurn(), 800);
+    }
+
+    /* ====== Tirar dado y mover ====== */
+    let isAnimating = false;
+    let isGameOver = false;
+
+    function rollDice(){
+      if(isAnimating || isGameOver) return;
+      const roll = Math.floor(Math.random()*6)+1;
+      diceBtn.disabled = true;
+      resultEl.textContent = `${players[currentTurn].name} tiró: ${roll}`;
+      // mover ficha paso a paso
+      animateMove(players[currentTurn], roll).then(()=>{
+        // al finalizar movimiento, comprobar si llegó a meta
+        if(players[currentTurn].pos >= numCells - 1){
+          // ganó
+          isGameOver = true;
+          resultEl.textContent = `${players[currentTurn].name} llegó a la meta y ganó la partida 🏆`;
+          turnText.textContent = `¡Victoria! ${players[currentTurn].name}`;
+          diceBtn.disabled = true;
+          return;
+        }
+        // pasar turno tras pequeño retardo
+        setTimeout(()=> nextTurn(), 700);
+      });
+    }
+
+    function animateMove(player, steps){
+      return new Promise((resolve)=>{
+        isAnimating = true;
+        let remaining = steps;
+        const interval = setInterval(()=>{
+          if(remaining <= 0){
+            clearInterval(interval);
+            isAnimating = false;
+            renderTokens();
+            resolve();
+            return;
+          }
+          // avanzar 1 casilla
+          player.pos++;
+          if(player.pos >= numCells) player.pos = numCells - 1;
+          renderTokens();
+          remaining--;
+        }, 220); // tiempo por paso en ms
+      });
+    }
+
+    /* ====== Turnos ====== */
+    function nextTurn(){
+      if(isGameOver) return;
+      currentTurn = (currentTurn + 1) % players.length;
+      updateInfo();
+      // mostrar pregunta al siguiente jugador
+      setTimeout(()=> showQuestionForCurrentPlayer(), 300);
+    }
+
+    function updateInfo(){
+      const p = players[currentTurn];
+      turnText.textContent = `Turno: ${p.name}`;
+      // show simple positions
+      const positions = players.map(pl => `${pl.name}: ${pl.pos+1}`).join(' • ');
+      document.getElementById('scoreText').textContent = positions;
+      resultEl.textContent = '';
+      diceBtn.disabled = true; // por defecto, hasta que responda correcto
+    }
+
+    /* ====== Exponer para console / debug (opcional) ====== */
+    window.rollDice = rollDice;
+    window.restart = restart;
+
+    // export startGame for the inline created start button
+    function showQuestionForCurrentPlayerIfReady(){
+      if(questionPool && questionPool.length>0) showQuestionForCurrentPlayer();
+    }
+
+    /* ====== small safety: cuando preguntas.json se cargue y usuario ya presionó "Configurar", se actualiza estado ====== */
+    // observa cambios: si preguntas cargadas y ya configuró jugadores, actualizar status y permitir empezar.
+    const observer = new MutationObserver(()=>{ /* no-op - placeholder */ });
+    observer.observe(playersConfig, {childList:true, subtree:true});
+
+    // listo: cuando la página tenga preguntas cargadas, permitir configurar
+    (function waitForLoad(){
+      if(questions && questions.length>0){
+        statusLoad.style.color = '#9be7a3';
+      } else {
+        // si no llegó luego de 3s, mostrar aviso pero permitir igualmente la configuración
+        setTimeout(()=> {
+          if(!questions || questions.length===0){
+            statusLoad.textContent = 'Advertencia: preguntas.json no cargado todavía o vacío.';
+            statusLoad.style.color = '#ffd166';
+          }
+        }, 1800);
+      }
+    })();
+
+  </script>
+</body>
+</html>
