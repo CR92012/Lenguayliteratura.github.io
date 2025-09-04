@@ -89,7 +89,7 @@
     }
     #turnText{ font-weight:700; margin:6px 0; }
     #diceBtn{ width:100%; margin-top:8px; }
-    #result{ color:var(--muted); min-height:20px; }
+    #result{ color:var(--muted); min-height:30px; }
 
     /* Modal pregunta */
     #questionBox{
@@ -170,7 +170,7 @@
     <p id="qText" style="color:#cfe4ff"></p>
     <div id="qOpts"></div>
     <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end">
-      <!-- Ahora el botón cerrar cuenta como fallo (pasa turno) -->
+      <!-- Cerrar cuenta como fallo -->
       <button onclick="handleWrongAnswer()">Cerrar (Cuenta como fallo)</button>
     </div>
   </div>
@@ -180,10 +180,21 @@
     let questions = [];            // todas las preguntas cargadas desde JSON
     let questionPool = [];         // mapeo de preguntas por casilla
     let startPool = [];            // preguntas para la casilla de salida (hasta 3)
-    let players = [];              // array de jugadores {name,color,pos,score}
+    let players = [];              // array de jugadores {name,color,pos,score,skip}
     let currentTurn = 0;
     let numCells = 30;
     const availableColors = ["#e63946","#1d3557","#2a9d8f","#f4a261","#9b5de5","#ff7b00"];
+
+    // ====== Definición de casillas especiales (indices 0-based) ======
+    // Tipos: 'advance' (value positive), 'back' (value negative), 'goStart', 'loseTurn', 'bonusPoints'
+    // Editá acá para modificar la distribución de casillas especiales.
+    const cellEffects = {
+      4:  { type: 'advance', value: 2,  points: 1 },  // casilla 5 (índice 4): avanza 2 y +1 punto
+      9:  { type: 'back',    value: -2 },              // casilla 10 (índice 9): retrocede 2
+      14: { type: 'goStart' },                         // casilla 15: vuelve al inicio
+      19: { type: 'loseTurn' },                        // casilla 20: pierde próximo turno
+      24: { type: 'advance', value: 3, points: 2 }     // casilla 25: avanza 3 y +2 puntos
+    };
 
     const statusLoad = document.getElementById('statusLoad');
     const setupBtn = document.getElementById('setupBtn');
@@ -233,7 +244,6 @@
           } else {
             item.respuesta = 0;
           }
-          // asegurar que el índice no salga del rango
           if(item.respuesta < 0 || item.respuesta >= item.opciones.length) item.respuesta = 0;
           return item;
         });
@@ -302,17 +312,39 @@
         tokens.className = 'tokens';
         cell.appendChild(num);
         cell.appendChild(tokens);
+
+        // mostrar un pequeño icono de efecto si la casilla tiene uno
+        if(cellEffects[i]){
+          const badge = document.createElement('div');
+          badge.style.position='absolute';
+          badge.style.left='6px';
+          badge.style.top='6px';
+          badge.style.fontSize='10px';
+          badge.style.opacity='0.9';
+          switch(cellEffects[i].type){
+            case 'advance': badge.textContent = `+${cellEffects[i].value}`; break;
+            case 'back': badge.textContent = `${cellEffects[i].value}`; break;
+            case 'goStart': badge.textContent = '🏁←'; break;
+            case 'loseTurn': badge.textContent = '⭯'; break;
+            case 'bonusPoints': badge.textContent = `+${cellEffects[i].points}p`; break;
+            default: badge.textContent = ''; break;
+          }
+          badge.style.color='#fff';
+          badge.style.background='rgba(255,255,255,0.06)';
+          badge.style.padding='2px 4px';
+          badge.style.borderRadius='4px';
+          cell.appendChild(badge);
+        }
+
         tableroEl.appendChild(cell);
       }
     }
 
     function prepareQuestionPool(cells){
-      // asegurarnos que questions esté cargado
       if(!questions || questions.length===0) {
         alert('No hay preguntas cargadas en preguntas.json. Revisa el archivo y recarga la página.');
         return false;
       }
-      // pool repetido / mezclado para cubrir todas las casillas
       let pool = [];
       const shuffled = shuffle(questions.slice());
       while(pool.length < cells){
@@ -320,11 +352,10 @@
       }
       pool = pool.slice(0,cells);
       questionPool = pool.map(q=> {
-        // q ya normalizado en loadQuestions
         return { pregunta: q.pregunta, opciones: q.opciones.slice(0,3), respuesta: q.respuesta };
       });
 
-      // preparar preguntas para salida: hasta 3 aleatorias (si hay suficientes)
+      // preguntas para salida (hasta 3)
       startPool = [];
       if(questions.length <= 3) startPool = shuffle(questions.slice());
       else {
@@ -336,47 +367,39 @@
 
     /* ====== Iniciar / reiniciar juego ====== */
     function startGame(){
-      // impedir iniciar si las preguntas no cargaron
       if(!questions || questions.length===0){
         alert('Aún no se han cargado preguntas. Esperá y recargá la página, o revisá preguntas.json.');
         return;
       }
 
-      // leer configuración jugadores
       const n = parseInt(numPlayersSelect.value,10);
       numCells = Math.max(10, Math.min(60, parseInt(numCellsInput.value,10) || 30));
       players = [];
       for(let i=0;i<n;i++){
         const name = document.querySelectorAll('#playersConfig input')[i].value || `J${i+1}`;
         const color = document.getElementById('colorSel_'+i).value || availableColors[i];
-        players.push({ name, color, pos:0, score:0 });
+        players.push({ name, color, pos:0, score:0, skip:false });
       }
       currentTurn = 0;
       isGameOver = false;
 
-      // construir tablero y pool
       buildBoard(numCells);
       const ok = prepareQuestionPool(numCells);
       if(!ok) return;
 
-      // mostrar UI
       document.getElementById('config').style.display = 'none';
       boardWrap.style.display = 'flex';
       infoPanel.style.display = 'block';
 
       renderTokens();
       updateInfo();
-      // mostrar la primer pregunta para el primer jugador (casilla salida)
       setTimeout(()=> showQuestionForCurrentPlayer(), 300);
     }
 
-    function restart(){
-      location.reload();
-    }
+    function restart(){ location.reload(); }
 
     /* ====== Render tokens en tablero ====== */
     function renderTokens(){
-      // limpiar tokens
       document.querySelectorAll('.tokens').forEach(t => t.innerHTML = '');
       players.forEach((p,pi)=>{
         const cell = document.querySelector(`.cell[data-index="${p.pos}"]`);
@@ -385,7 +408,7 @@
           const t = document.createElement('div');
           t.className = 'token';
           t.style.background = p.color;
-          t.title = p.name;
+          t.title = `${p.name} (${p.score}p)`;
           container.appendChild(t);
         }
       });
@@ -399,28 +422,23 @@
       }
 
       const player = players[currentTurn];
-      // si alguien ya ganó, no mostrar
       if(isGameOver) return;
 
       // elegir la pregunta según casilla
       const cellIndex = player.pos;
       let q;
       if(cellIndex === 0 && startPool.length>0){
-        // pregunta aleatoria dentro del pool de salida
         q = startPool[Math.floor(Math.random() * startPool.length)];
       } else {
         q = questionPool[cellIndex % questionPool.length];
       }
 
-      // mostrar modal
       qTitle.textContent = `${player.name} (Casilla ${cellIndex+1})`;
       qText.textContent = q.pregunta;
       qOpts.innerHTML = '';
 
-      // mezclar opciones manteniendo cuál es la correcta
       const opts = q.opciones.slice(0,3).map((o,idx)=>({text:o, idx}));
       const shuffledOpts = shuffle(opts.slice());
-      // encontrar la posición correcta en la lista mezclada
       const correctPos = shuffledOpts.findIndex(o=> o.idx === q.respuesta);
 
       shuffledOpts.forEach((optObj, oi)=>{
@@ -428,15 +446,12 @@
         div.className = 'opt';
         div.textContent = optObj.text;
         div.onclick = ()=> {
-          // bloquear más clicks
           Array.from(qOpts.children).forEach(c=> c.style.pointerEvents='none');
-          // marcar visualmente
           if(oi === correctPos){
             div.classList.add('correct');
             handleCorrectAnswer();
           } else {
             div.classList.add('wrong');
-            // marcar la correcta también si existe
             if(qOpts.children[correctPos]) qOpts.children[correctPos].classList.add('correct');
             handleWrongAnswer();
           }
@@ -444,9 +459,7 @@
         qOpts.appendChild(div);
       });
 
-      // show modal
       qBox.style.display = 'block';
-      // disable dice while question is open
       diceBtn.disabled = true;
     }
 
@@ -456,24 +469,22 @@
     }
 
     function handleCorrectAnswer(){
-      // permitir tirar dado
+      // sumar 1 punto por respuesta correcta
+      players[currentTurn].score = (players[currentTurn].score || 0) + 1;
+      updateInfo();
       closeQuestion(true);
-      resultEl.textContent = `${players[currentTurn].name} respondió correctamente. Ahora puede tirar el dado.`;
+      resultEl.textContent = `${players[currentTurn].name} respondió correctamente (+1 punto). Ahora puede tirar el dado.`;
       diceBtn.disabled = false;
     }
 
     function handleWrongAnswer(){
-      // cerrar modal (no se habilita el dado)
       closeQuestion(false);
-      // mostrar mensaje
       resultEl.textContent = `${players[currentTurn].name} falló. Turno siguiente.`;
-      // asegurarnos de que el botón quede deshabilitado
       diceBtn.disabled = true;
-      // pasar turno tras 700ms para que el usuario vea el feedback
       setTimeout(()=> nextTurn(), 700);
     }
 
-    /* ====== Tirar dado y mover ====== */
+    /* ====== Tirar dado, mover y aplicar efectos de casilla ====== */
     let isAnimating = false;
     let isGameOver = false;
 
@@ -482,18 +493,19 @@
       const roll = Math.floor(Math.random()*6)+1;
       diceBtn.disabled = true;
       resultEl.textContent = `${players[currentTurn].name} tiró: ${roll}`;
-      // mover ficha paso a paso
-      animateMove(players[currentTurn], roll).then(()=>{
-        // al finalizar movimiento, comprobar si llegó a meta
+      animateMove(players[currentTurn], roll).then(async ()=>{
+        // aplicar efecto de casilla tras movimiento
+        await applyCellEffect(players[currentTurn]);
+        // comprobar si ganó tras efectos
         if(players[currentTurn].pos >= numCells - 1){
-          // ganó
           isGameOver = true;
           resultEl.textContent = `${players[currentTurn].name} llegó a la meta y ganó la partida 🏆`;
           turnText.textContent = `¡Victoria! ${players[currentTurn].name}`;
           diceBtn.disabled = true;
+          renderTokens();
           return;
         }
-        // pasar turno tras pequeño retardo
+        // pasar turno
         setTimeout(()=> nextTurn(), 700);
       });
     }
@@ -510,39 +522,104 @@
             resolve();
             return;
           }
-          // avanzar 1 casilla
           player.pos++;
           if(player.pos >= numCells) player.pos = numCells - 1;
           renderTokens();
           remaining--;
-        }, 220); // tiempo por paso en ms
+        }, 220);
       });
     }
 
-    /* ====== Turnos ====== */
+    // aplica el efecto de la casilla donde quedó el jugador (puede moverlo otra vez, darle puntos, marcar skip...)
+    async function applyCellEffect(player){
+      const idx = player.pos;
+      const eff = cellEffects[idx];
+      if(!eff) return;
+      switch(eff.type){
+        case 'advance': {
+          const advanceBy = eff.value || 1;
+          const dest = Math.min(numCells - 1, player.pos + advanceBy);
+          player.pos = dest;
+          // puntos extra si vienen definidos
+          if(eff.points) player.score = (player.score || 0) + eff.points;
+          resultEl.textContent = `${player.name} cae en casilla especial: avanza ${advanceBy} casillas${eff.points? ' y gana '+eff.points+' puntos':''}.`;
+          renderTokens();
+          break;
+        }
+        case 'back': {
+          const move = eff.value || -1;
+          player.pos = Math.max(0, player.pos + move);
+          resultEl.textContent = `${player.name} cae en casilla penal: retrocede ${Math.abs(move)} casillas.`;
+          renderTokens();
+          break;
+        }
+        case 'goStart': {
+          player.pos = 0;
+          resultEl.textContent = `${player.name} cae en casilla TRAMPA: vuelve al inicio.`;
+          renderTokens();
+          break;
+        }
+        case 'loseTurn': {
+          player.skip = true;
+          resultEl.textContent = `${player.name} pierde el próximo turno.`;
+          break;
+        }
+        case 'bonusPoints': {
+          const pts = eff.points || 1;
+          player.score = (player.score || 0) + pts;
+          resultEl.textContent = `${player.name} recibe ${pts} puntos de bonificación.`;
+          updateInfo();
+          break;
+        }
+        default:
+          break;
+      }
+      // pequeño delay para que el usuario lea el efecto
+      await new Promise(r=> setTimeout(r, 550));
+    }
+
+    /* ====== Turnos (skipping si corresponde) ====== */
     function nextTurn(){
       if(isGameOver) return;
-      currentTurn = (currentTurn + 1) % players.length;
+      // avanzar al siguiente jugador y saltar si tiene skip = true
+      const max = players.length;
+      let tries = 0;
+      do {
+        currentTurn = (currentTurn + 1) % players.length;
+        tries++;
+        if(tries > max) break; // seguridad
+      } while(players[currentTurn].skip && (players[currentTurn].skip = ( (players[currentTurn].skip && false) , true) ));
+      // la línea anterior borra el skip: lo hacemos explícito a continuación
+
+      // Si el jugador tenía skip, consumimos la penalización y saltamos de nuevo
+      if(players[currentTurn].skip){
+        // consume skip and advance again
+        players[currentTurn].skip = false;
+        resultEl.textContent = `${players[currentTurn].name} pierde su turno (penalización).`;
+        // avanzar otro turno
+        setTimeout(()=> nextTurn(), 700);
+        return;
+      }
+
       updateInfo();
-      // mostrar pregunta al siguiente jugador
       setTimeout(()=> showQuestionForCurrentPlayer(), 300);
     }
 
     function updateInfo(){
-      const p = players[currentTurn];
+      const p = players[currentTurn] || {name:'-'};
       turnText.textContent = `Turno: ${p.name}`;
-      // show simple positions
-      const positions = players.map(pl => `${pl.name}: ${pl.pos+1}`).join(' • ');
+      // posiciones y puntos
+      const positions = players.map(pl => `${pl.name}: ${pl.pos+1} (${pl.score || 0}p)`).join(' • ');
       document.getElementById('scoreText').textContent = positions;
       resultEl.textContent = '';
-      diceBtn.disabled = true; // por defecto, hasta que responda correcto
+      diceBtn.disabled = true;
     }
 
     /* ====== Exponer para console / debug (opcional) ====== */
     window.rollDice = rollDice;
     window.restart = restart;
 
-    // pequeño aviso si preguntas no llegaban al iniciar configuración
+    // aviso si preguntas no llegan
     (function waitForLoad(){
       setTimeout(()=> {
         if(!questions || questions.length===0){
