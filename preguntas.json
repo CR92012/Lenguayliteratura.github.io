@@ -1,0 +1,38 @@
+[
+  {
+    "categoria": "Lengua",
+    "pregunta": "¿Cuál de las siguientes opciones es un sustantivo?",
+    "opciones": ["Correr", "Mesa", "Rápido"],
+    "respuesta": "Mesa"
+  },
+  {
+    "categoria": "Literatura",
+    "pregunta": "¿Quién escribió 'Don Quijote de la Mancha'?",
+    "opciones": ["Gabriel García Márquez", "Miguel de Cervantes", "Jorge Luis Borges"],
+    "respuesta": "Miguel de Cervantes"
+  },
+  {
+    "categoria": "Lengua",
+    "pregunta": "¿Cuál es el plural de 'lápiz'?",
+    "opciones": ["Lapizes", "Lápices", "Lápizs"],
+    "respuesta": "Lápices"
+  },
+  {
+    "categoria": "Literatura",
+    "pregunta": "¿A qué género literario pertenece 'La Odisea'?",
+    "opciones": ["Épico", "Lírico", "Dramático"],
+    "respuesta": "Épico"
+  },
+  {
+    "categoria": "Lengua",
+    "pregunta": "¿Cuál de las siguientes palabras es un adjetivo?",
+    "opciones": ["Cantar", "Rápido", "Montaña"],
+    "respuesta": "Rápido"
+  },
+  {
+    "categoria": "Literatura",
+    "pregunta": "¿Qué poeta escribió 'Veinte poemas de amor y una canción desesperada'?",
+    "opciones": ["Octavio Paz", "Pablo Neruda", "Mario Benedetti"],
+    "respuesta": "Pablo Neruda"
+  }
+]
