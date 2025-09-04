@@ -36,7 +36,7 @@
     }
     #config label{ display:block; margin:6px 0; color:var(--muted) }
     .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:6px; }
-    select, button, input[type="number"]{
+    select, button, input[type="number"], input[type="text"]{
       background:var(--card);
       color:#fff;
       border:1px solid rgba(255,255,255,0.04);
@@ -170,7 +170,8 @@
     <p id="qText" style="color:#cfe4ff"></p>
     <div id="qOpts"></div>
     <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end">
-      <button onclick="closeQuestion(false)">Cerrar</button>
+      <!-- Ahora el botón cerrar cuenta como fallo (pasa turno) -->
+      <button onclick="handleWrongAnswer()">Cerrar (Cuenta como fallo)</button>
     </div>
   </div>
 
@@ -208,18 +209,41 @@
       try{
         const res = await fetch('preguntas.json', {cache:"no-store"});
         if(!res.ok) throw new Error('No se pudo cargar preguntas.json: '+res.status);
-        questions = await res.json();
-        if(!Array.isArray(questions) || questions.length===0){
+        const raw = await res.json();
+        if(!Array.isArray(raw) || raw.length===0){
           statusLoad.textContent = 'preguntas.json vacío o mal formado';
           statusLoad.style.color = '#ff6b6b';
+          questions = [];
           return;
         }
+        // Normalizar: permitir "respuesta" como número o como texto
+        questions = raw.map((q, idx) => {
+          const item = {
+            pregunta: q.pregunta || `Pregunta inválida #${idx+1}`,
+            opciones: Array.isArray(q.opciones) ? q.opciones.slice(0,3) : ["-","-","-"],
+            respuesta: null // lo resolvemos abajo
+          };
+          // si respuesta es número y válido:
+          if(typeof q.respuesta === 'number' && Number.isInteger(q.respuesta) && q.respuesta >= 0) {
+            item.respuesta = q.respuesta;
+          } else if(typeof q.respuesta === 'string') {
+            // buscar índice que matchee (case-insensitive)
+            const found = item.opciones.findIndex(opt => opt && opt.toString().toLowerCase().trim() === q.respuesta.toLowerCase().trim());
+            item.respuesta = found >= 0 ? found : 0;
+          } else {
+            item.respuesta = 0;
+          }
+          // asegurar que el índice no salga del rango
+          if(item.respuesta < 0 || item.respuesta >= item.opciones.length) item.respuesta = 0;
+          return item;
+        });
         statusLoad.textContent = `Preguntas cargadas: ${questions.length}`;
         statusLoad.style.color = '#9be7a3';
       } catch(e){
         statusLoad.textContent = 'Error cargando preguntas.json';
         statusLoad.style.color = '#ff6b6b';
         console.error(e);
+        questions = [];
       }
     }
     loadQuestions();
@@ -228,7 +252,6 @@
     setupBtn.addEventListener('click', ()=> {
       const n = parseInt(numPlayersSelect.value,10);
       playersConfig.innerHTML = '';
-      const used = [];
       for(let i=0;i<n;i++){
         const row = document.createElement('div');
         row.className = 'row';
@@ -246,7 +269,6 @@
           const opt = document.createElement('option');
           opt.value = c;
           opt.textContent = `Color ${idx+1}`;
-          opt.style.background = c;
           sel.appendChild(opt);
         });
         sel.value = availableColors[i % availableColors.length];
@@ -266,7 +288,9 @@
     /* ====== Crear tablero y pool de preguntas ====== */
     function buildBoard(cells){
       tableroEl.innerHTML = '';
-      tableroEl.style.gridTemplateColumns = `repeat(${ Math.min(10, Math.ceil(cells/3)) },48px)`;
+      // columnas dinámicas para que sea responsivo
+      const cols = Math.min(10, Math.max(5, Math.ceil(Math.sqrt(cells))));
+      tableroEl.style.gridTemplateColumns = `repeat(${cols},48px)`;
       for(let i=0;i<cells;i++){
         const cell = document.createElement('div');
         cell.className = 'cell';
@@ -286,7 +310,7 @@
       // asegurarnos que questions esté cargado
       if(!questions || questions.length===0) {
         alert('No hay preguntas cargadas en preguntas.json. Revisa el archivo y recarga la página.');
-        return;
+        return false;
       }
       // pool repetido / mezclado para cubrir todas las casillas
       let pool = [];
@@ -295,13 +319,8 @@
         pool = pool.concat(shuffled.slice());
       }
       pool = pool.slice(0,cells);
-      questionPool = pool.map(q=>{
-        // validar estructura mínima
-        if(!q || !q.pregunta || !Array.isArray(q.opciones) || q.opciones.length < 3 || typeof q.respuesta !== 'number') {
-          // fallback
-          return { pregunta: "Pregunta inválida en JSON", opciones:["-","-","-"], respuesta:0 };
-        }
-        // normalizar a 3 opciones (si hay más, tomar primeras 3)
+      questionPool = pool.map(q=> {
+        // q ya normalizado en loadQuestions
         return { pregunta: q.pregunta, opciones: q.opciones.slice(0,3), respuesta: q.respuesta };
       });
 
@@ -312,10 +331,17 @@
         const pick = shuffle(questions.slice()).slice(0,3);
         startPool = pick;
       }
+      return true;
     }
 
     /* ====== Iniciar / reiniciar juego ====== */
     function startGame(){
+      // impedir iniciar si las preguntas no cargaron
+      if(!questions || questions.length===0){
+        alert('Aún no se han cargado preguntas. Esperá y recargá la página, o revisá preguntas.json.');
+        return;
+      }
+
       // leer configuración jugadores
       const n = parseInt(numPlayersSelect.value,10);
       numCells = Math.max(10, Math.min(60, parseInt(numCellsInput.value,10) || 30));
@@ -326,10 +352,12 @@
         players.push({ name, color, pos:0, score:0 });
       }
       currentTurn = 0;
+      isGameOver = false;
 
       // construir tablero y pool
       buildBoard(numCells);
-      prepareQuestionPool(numCells);
+      const ok = prepareQuestionPool(numCells);
+      if(!ok) return;
 
       // mostrar UI
       document.getElementById('config').style.display = 'none';
@@ -339,7 +367,6 @@
       renderTokens();
       updateInfo();
       // mostrar la primer pregunta para el primer jugador (casilla salida)
-      // retrasamos un poco para que UI se estabilice
       setTimeout(()=> showQuestionForCurrentPlayer(), 300);
     }
 
@@ -392,8 +419,8 @@
 
       // mezclar opciones manteniendo cuál es la correcta
       const opts = q.opciones.slice(0,3).map((o,idx)=>({text:o, idx}));
-      // we may want to shuffle options but need to track correct index
       const shuffledOpts = shuffle(opts.slice());
+      // encontrar la posición correcta en la lista mezclada
       const correctPos = shuffledOpts.findIndex(o=> o.idx === q.respuesta);
 
       shuffledOpts.forEach((optObj, oi)=>{
@@ -409,8 +436,8 @@
             handleCorrectAnswer();
           } else {
             div.classList.add('wrong');
-            // marcar la correcta también
-            qOpts.children[correctPos].classList.add('correct');
+            // marcar la correcta también si existe
+            if(qOpts.children[correctPos]) qOpts.children[correctPos].classList.add('correct');
             handleWrongAnswer();
           }
         };
@@ -432,16 +459,18 @@
       // permitir tirar dado
       closeQuestion(true);
       resultEl.textContent = `${players[currentTurn].name} respondió correctamente. Ahora puede tirar el dado.`;
-      // enable button
       diceBtn.disabled = false;
     }
 
     function handleWrongAnswer(){
-      // cerrar modal y pasar turno
+      // cerrar modal (no se habilita el dado)
       closeQuestion(false);
+      // mostrar mensaje
       resultEl.textContent = `${players[currentTurn].name} falló. Turno siguiente.`;
-      // pasar turno tras 800ms para que el usuario vea el feedback
-      setTimeout(()=> nextTurn(), 800);
+      // asegurarnos de que el botón quede deshabilitado
+      diceBtn.disabled = true;
+      // pasar turno tras 700ms para que el usuario vea el feedback
+      setTimeout(()=> nextTurn(), 700);
     }
 
     /* ====== Tirar dado y mover ====== */
@@ -513,29 +542,14 @@
     window.rollDice = rollDice;
     window.restart = restart;
 
-    // export startGame for the inline created start button
-    function showQuestionForCurrentPlayerIfReady(){
-      if(questionPool && questionPool.length>0) showQuestionForCurrentPlayer();
-    }
-
-    /* ====== small safety: cuando preguntas.json se cargue y usuario ya presionó "Configurar", se actualiza estado ====== */
-    // observa cambios: si preguntas cargadas y ya configuró jugadores, actualizar status y permitir empezar.
-    const observer = new MutationObserver(()=>{ /* no-op - placeholder */ });
-    observer.observe(playersConfig, {childList:true, subtree:true});
-
-    // listo: cuando la página tenga preguntas cargadas, permitir configurar
+    // pequeño aviso si preguntas no llegaban al iniciar configuración
     (function waitForLoad(){
-      if(questions && questions.length>0){
-        statusLoad.style.color = '#9be7a3';
-      } else {
-        // si no llegó luego de 3s, mostrar aviso pero permitir igualmente la configuración
-        setTimeout(()=> {
-          if(!questions || questions.length===0){
-            statusLoad.textContent = 'Advertencia: preguntas.json no cargado todavía o vacío.';
-            statusLoad.style.color = '#ffd166';
-          }
-        }, 1800);
-      }
+      setTimeout(()=> {
+        if(!questions || questions.length===0){
+          statusLoad.textContent = 'Advertencia: preguntas.json no cargado todavía o vacío.';
+          statusLoad.style.color = '#ffd166';
+        }
+      }, 1500);
     })();
 
   </script>
