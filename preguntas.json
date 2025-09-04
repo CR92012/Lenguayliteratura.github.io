@@ -1,38 +1,152 @@
 [
   {
-    "categoria": "Lengua",
-    "pregunta": "¿Cuál de las siguientes opciones es un sustantivo?",
-    "opciones": ["Correr", "Mesa", "Rápido"],
-    "respuesta": "Mesa"
-  },
-  {
-    "categoria": "Literatura",
     "pregunta": "¿Quién escribió 'Don Quijote de la Mancha'?",
-    "opciones": ["Gabriel García Márquez", "Miguel de Cervantes", "Jorge Luis Borges"],
-    "respuesta": "Miguel de Cervantes"
+    "opciones": ["Miguel de Cervantes", "William Shakespeare", "Jorge Luis Borges"],
+    "respuesta": 0
   },
   {
-    "categoria": "Lengua",
+    "pregunta": "¿Qué es un soneto?",
+    "opciones": ["Un poema de 14 versos", "Una obra de teatro", "Un cuento corto"],
+    "respuesta": 0
+  },
+  {
     "pregunta": "¿Cuál es el plural de 'lápiz'?",
     "opciones": ["Lapizes", "Lápices", "Lápizs"],
-    "respuesta": "Lápices"
+    "respuesta": 1
   },
   {
-    "categoria": "Literatura",
-    "pregunta": "¿A qué género literario pertenece 'La Odisea'?",
-    "opciones": ["Épico", "Lírico", "Dramático"],
-    "respuesta": "Épico"
+    "pregunta": "¿Quién es el autor de 'La Odisea'?",
+    "opciones": ["Homero", "Dante", "Cervantes"],
+    "respuesta": 0
   },
   {
-    "categoria": "Lengua",
-    "pregunta": "¿Cuál de las siguientes palabras es un adjetivo?",
-    "opciones": ["Cantar", "Rápido", "Montaña"],
-    "respuesta": "Rápido"
+    "pregunta": "¿Cuál de las siguientes es figura retórica?",
+    "opciones": ["Metáfora", "Símil", "Ambas"],
+    "respuesta": 2
   },
   {
-    "categoria": "Literatura",
     "pregunta": "¿Qué poeta escribió 'Veinte poemas de amor y una canción desesperada'?",
     "opciones": ["Octavio Paz", "Pablo Neruda", "Mario Benedetti"],
-    "respuesta": "Pablo Neruda"
+    "respuesta": 1
+  },
+  {
+    "pregunta": "¿Qué es un adjetivo?",
+    "opciones": ["Palabra que nombra", "Palabra que describe", "Palabra que conjuga verbos"],
+    "respuesta": 1
+  },
+  {
+    "pregunta": "¿Qué es la rima consonante?",
+    "opciones": ["Coinciden solo las vocales", "Coinciden vocales y consonantes al final", "No hay rima"],
+    "respuesta": 1
+  },
+  {
+    "pregunta": "¿Quién escribió 'Cien años de soledad'?",
+    "opciones": ["Gabriel García Márquez", "Julio Cortázar", "Ernesto Sabato"],
+    "respuesta": 0
+  },
+  {
+    "pregunta": "¿Qué es un haiku?",
+    "opciones": ["Un poema de 3 versos", "Un poema de 14 versos", "Una novela corta"],
+    "respuesta": 0
+  },
+  {
+    "pregunta": "¿Qué es un sinónimo?",
+    "opciones": ["Palabra contraria", "Palabra con significado similar", "Error ortográfico"],
+    "respuesta": 1
+  },
+  {
+    "pregunta": "¿Qué es un antónimo?",
+    "opciones": ["Palabra opuesta", "Palabra similar", "Palabra inventada"],
+    "respuesta": 0
+  },
+  {
+    "pregunta": "¿Qué tipo de palabra es 'rápidamente'?",
+    "opciones": ["Sustantivo", "Adjetivo", "Adverbio"],
+    "respuesta": 2
+  },
+  {
+    "pregunta": "¿Quién escribió 'Bodas de sangre'?",
+    "opciones": ["Federico García Lorca", "Lope de Vega", "Benito Pérez Galdós"],
+    "respuesta": 0
+  },
+  {
+    "pregunta": "¿Qué es la metáfora?",
+    "opciones": ["Comparación explícita con 'como'", "Sustitución por semejanza", "Repetición de sonidos"],
+    "respuesta": 1
+  },
+  {
+    "pregunta": "¿Quién escribió 'Rayuela'?",
+    "opciones": ["Julio Cortázar", "Jorge Luis Borges", "Adolfo Bioy Casares"],
+    "respuesta": 0
+  },
+  {
+    "pregunta": "¿Qué es la hipérbole?",
+    "opciones": ["Exageración intencional", "Minimización", "Narración breve"],
+    "respuesta": 0
+  },
+  {
+    "pregunta": "¿Qué es un verbo?",
+    "opciones": ["Palabra que describe acciones", "Palabra que nombra personas", "Palabra que une oraciones"],
+    "respuesta": 0
+  },
+  {
+    "pregunta": "En 'María come manzanas', ¿cuál es el sujeto?",
+    "opciones": ["María", "come", "manzanas"],
+    "respuesta": 0
+  },
+  {
+    "pregunta": "¿Qué es la aliteración?",
+    "opciones": ["Repetición de sonidos", "Cambio de tiempo verbal", "Orden de palabras"],
+    "respuesta": 0
+  },
+  {
+    "pregunta": "¿Quién escribió 'Ficciones'?",
+    "opciones": ["Jorge Luis Borges", "Gabriel García Márquez", "Pablo Neruda"],
+    "respuesta": 0
+  },
+  {
+    "pregunta": "¿Qué es la prosa?",
+    "opciones": ["Verso rimado", "Lenguaje en forma narrativa no poética", "Tipo de poema"],
+    "respuesta": 1
+  },
+  {
+    "pregunta": "¿Qué es el personaje protagonista?",
+    "opciones": ["Personaje secundario", "Personaje principal de la historia", "El narrador"],
+    "respuesta": 1
+  },
+  {
+    "pregunta": "¿Qué significa narrar en 1ª persona?",
+    "opciones": ["El narrador usa 'yo'", "El narrador usa 'usted'", "Narrador omnisciente"],
+    "respuesta": 0
+  },
+  {
+    "pregunta": "¿Quién escribió 'El Aleph'?",
+    "opciones": ["Jorge Luis Borges", "Gabriel García Márquez", "Julio Cortázar"],
+    "respuesta": 0
+  },
+  {
+    "pregunta": "¿Qué es una fábula?",
+    "opciones": ["Relato con moraleja", "Ensayo científico", "Biografía"],
+    "respuesta": 0
+  },
+  {
+    "pregunta": "¿Para qué sirve la puntuación?",
+    "opciones": ["Para decorar el texto", "Para organizar y clarificar oraciones", "Para inventar palabras"],
+    "respuesta": 1
+  },
+  {
+    "pregunta": "¿Qué es la tilde en 'árbol'?",
+    "opciones": ["Acento ortográfico", "Signo de puntuación", "Letra especial"],
+    "respuesta": 0
+  },
+  {
+    "pregunta": "¿Qué es un narrador omnisciente?",
+    "opciones": ["Conoce pensamientos de todos los personajes", "Solo cuenta hechos sin opinar", "Es siempre el autor"],
+    "respuesta": 0
+  },
+  {
+    "pregunta": "¿Qué es la elipsis en literatura?",
+    "opciones": ["Omisión de palabras que se sobreentienden", "Repetición de palabras", "Cambio de tiempo verbal"],
+    "respuesta": 0
   }
 ]
